@@ -17,6 +17,7 @@ jobs:
         uses: ./scanner/check_git_action
         with:
           targets: |
+            http://http.badssl.com
             https://nginx_good:8443
             https://nginx_bad:9443
           install-playwright: true
