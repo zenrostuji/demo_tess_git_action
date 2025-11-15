@@ -1,0 +1,48 @@
+name: demo-tls-scanner
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  tls-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run TLS scanner demo
+        uses: ./scanner/check_git_action
+        with:
+          targets: |
+            https://nginx_good:8443
+            https://nginx_bad:9443
+          install-playwright: true
+          fail-on: HIGH
+
+      - name: Upload TLS report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tls-scan-report
+          path: scanner/tls_scan_report.json
+
+  sudoku-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run Sudoku tests
+        run: pytest demo_tess_git_action/sudoku_demo -q
