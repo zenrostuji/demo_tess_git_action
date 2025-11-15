@@ -86,16 +86,16 @@ for chunk in raw_targets.replace(",", "\n").splitlines():
 
 if not normalized_entries:
     print("No targets provided, skipping scan.")
-  report_path.parent.mkdir(parents=True, exist_ok=True)
-  report_path.write_text("[]", encoding="utf-8")
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("[]", encoding="utf-8")
     Path("tls_scan_summary.txt").write_text("No targets provided.\n", encoding="utf-8")
     sys.exit(0)
 
 prepared = prepare_targets(normalized_entries)
 if not prepared:
     print("No valid targets after normalization, skipping scan.")
-  report_path.parent.mkdir(parents=True, exist_ok=True)
-  report_path.write_text("[]", encoding="utf-8")
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("[]", encoding="utf-8")
     Path("tls_scan_summary.txt").write_text("No valid targets provided.\n", encoding="utf-8")
     sys.exit(0)
 
@@ -104,7 +104,7 @@ print(f"Scanning {len(prepared)} targets...")
 async def _run() -> int:
     results = await scan_targets(prepared, None)
     print_summary(results)
-  report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
     order = {"NONE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3}
     if fail_level not in order:
@@ -130,4 +130,3 @@ exit_code = asyncio.run(_run())
 sys.exit(exit_code)
 PY
         echo "report-path=${{ inputs.working-directory }}/${{ inputs.report-path }}" >> "$GITHUB_OUTPUT"
-*** End Patch
