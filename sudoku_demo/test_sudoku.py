@@ -1,6 +1,6 @@
 """Tests for the Sudoku demo used in CI examples."""
 
-from demo_tess_git_action.sudoku_demo import sudoku
+from . import sudoku
 
 PUZZLE = "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
 SOLUTION = "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
@@ -33,3 +33,4 @@ def test_unsolvable_puzzle_raises_value_error():
     except ValueError:
         return
     raise AssertionError("Unsolvable puzzle should raise ValueError")
+
