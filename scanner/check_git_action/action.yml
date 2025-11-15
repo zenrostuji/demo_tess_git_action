@@ -1,0 +1,133 @@
+name: "TLS Scanner CI"
+description: "Chạy trình quét TLS/HTTP của dự án trong GitHub Actions"
+author: "DACN TLS Demo"
+
+inputs:
+  working-directory:
+    description: "Thư mục chứa scanner.py (mặc định: scanner)"
+    required: false
+    default: "scanner"
+  python-version:
+    description: "Phiên bản Python để chạy trong workflow"
+    required: false
+    default: "3.10"
+  targets:
+    description: "Danh sách mục tiêu cần quét (mỗi dòng một URL/domain)"
+    required: true
+  install-playwright:
+    description: "Cài đặt trình duyệt Playwright Chromium để render JavaScript"
+    required: false
+    default: "false"
+  fail-on:
+    description: "Ngưỡng rủi ro (NONE, LOW, MEDIUM, HIGH) khiến job thất bại"
+    required: false
+    default: "NONE"
+  report-path:
+    description: "Đường dẫn file JSON lưu kết quả (tương đối so với working-directory)"
+    required: false
+    default: "tls_scan_report.json"
+
+outputs:
+  report-path:
+    description: "Đường dẫn file báo cáo JSON được tạo"
+    value: ${{ steps.run-scan.outputs.report-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Thiết lập Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cài đặt dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install --no-cache-dir -r requirements.txt
+
+    - name: Cài đặt trình duyệt Playwright (tùy chọn)
+      if: ${{ inputs.install-playwright == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m playwright install chromium
+
+    - id: run-scan
+      name: Chạy TLS scanner
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TARGETS: ${{ inputs.targets }}
+        FAIL_LEVEL: ${{ inputs.fail-on }}
+        REPORT_PATH: ${{ inputs.report-path }}
+      run: |
+        python <<'PY'
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+from modules.input_manager import prepare_targets
+from modules.fetcher import scan_targets
+from modules.reporter import print_summary
+
+raw_targets = os.environ.get("TARGETS", "")
+report_path = Path(os.environ.get("REPORT_PATH", "tls_scan_report.json"))
+fail_level = os.environ.get("FAIL_LEVEL", "NONE").upper()
+
+normalized_entries = []
+for chunk in raw_targets.replace(",", "\n").splitlines():
+    item = chunk.strip()
+    if item:
+        normalized_entries.append(item)
+
+if not normalized_entries:
+    print("No targets provided, skipping scan.")
+  report_path.parent.mkdir(parents=True, exist_ok=True)
+  report_path.write_text("[]", encoding="utf-8")
+    Path("tls_scan_summary.txt").write_text("No targets provided.\n", encoding="utf-8")
+    sys.exit(0)
+
+prepared = prepare_targets(normalized_entries)
+if not prepared:
+    print("No valid targets after normalization, skipping scan.")
+  report_path.parent.mkdir(parents=True, exist_ok=True)
+  report_path.write_text("[]", encoding="utf-8")
+    Path("tls_scan_summary.txt").write_text("No valid targets provided.\n", encoding="utf-8")
+    sys.exit(0)
+
+print(f"Scanning {len(prepared)} targets...")
+
+async def _run() -> int:
+    results = await scan_targets(prepared, None)
+    print_summary(results)
+  report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+    order = {"NONE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3}
+    if fail_level not in order:
+        return 0
+    threshold = order[fail_level]
+    worst_value = 0
+    worst_target = ""
+    worst_risk = "NONE"
+    for item in results:
+        risk = str(item.get("risk", "NONE")).upper()
+        value = order.get(risk, 0)
+        if value > worst_value:
+            worst_value = value
+            worst_risk = risk
+            worst_target = str(item.get("url", ""))
+    if worst_value >= threshold and worst_value > 0:
+        message = f"Target {worst_target} has risk {worst_risk} (threshold {fail_level})."
+        print(f"::error::{message}")
+        return 1
+    return 0
+
+exit_code = asyncio.run(_run())
+sys.exit(exit_code)
+PY
+        echo "report-path=${{ inputs.working-directory }}/${{ inputs.report-path }}" >> "$GITHUB_OUTPUT"
+*** End Patch
