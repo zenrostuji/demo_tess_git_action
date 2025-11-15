@@ -45,4 +45,4 @@ jobs:
           pip install pytest
 
       - name: Run Sudoku tests
-        run: pytest demo_tess_git_action/sudoku_demo -q
+        run: pytest sudoku_demo -q
